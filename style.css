@@ -89,7 +89,7 @@ body {
 
 .rates-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px 8px;
 }
 
@@ -299,7 +299,6 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 .copy-btn:hover { background: #2b4a70; }
 
-/* Панель статуса */
 .status-panel {
   margin-top: 20px;
   background: #0e1625c0;
@@ -308,24 +307,18 @@ input[type="number"]::-webkit-inner-spin-button {
   border: 1px solid #2a3e5e;
   backdrop-filter: blur(4px);
 }
-
 .status-header {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
-.status-indicator {
-  font-size: 16px;
-}
-
+.status-indicator { font-size: 16px; }
 .status-text {
   flex: 1;
   font-size: 13px;
   font-weight: 500;
   color: #d0ddf5;
 }
-
 .refresh-btn {
   background: transparent;
   border: 1px solid #3a5680;
@@ -338,30 +331,22 @@ input[type="number"]::-webkit-inner-spin-button {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: 0.15s;
 }
-.refresh-btn:hover {
-  background: #2c405e;
-  color: white;
-}
-
+.refresh-btn:hover { background: #2c405e; color: white; }
 .status-details {
   margin-top: 6px;
   font-size: 11px;
   color: #8da4d0;
 }
-
 .status-log {
   margin-top: 8px;
   font-size: 11px;
   color: #a0b8dd;
   max-height: 60px;
   overflow-y: auto;
-  padding-right: 4px;
   scrollbar-width: thin;
 }
-.status-log::-webkit-scrollbar { width: 3px; }
-
 .toast {
   position: fixed;
   bottom: 30px;
@@ -376,8 +361,6 @@ input[type="number"]::-webkit-inner-spin-button {
   backdrop-filter: blur(8px);
   z-index: 200;
 }
-
 @media (max-width: 480px) {
   .calculator-card { padding: 14px 12px; }
-  .rates-grid { grid-template-columns: repeat(2, 1fr); }
 }

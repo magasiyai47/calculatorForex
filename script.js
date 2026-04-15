@@ -1,82 +1,38 @@
 (function() {
   "use strict";
 
-  // ---------- ГЛОБАЛЬНЫЕ КУРСЫ (ручной ввод для индексов и металлов) ----------
-  const globalRates = {
-    EURUSD: 1.0850,
-    GBPUSD: 1.2650,
-    AUDUSD: 0.6520,
-    NZDUSD: 0.5980,
-    USDCAD: 1.3580,
-    USDCHF: 0.9030,
-    USDJPY: 158.00,
-    XAUUSD: 2350.00,
-    US30: 39200,
-    NAS100: 18300,
-    SPX500: 5220.0
-  };
+  // ---------- ВАШ URL ИЗ GOOGLE APPS SCRIPT ----------
+  const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyVIWZGh5m1PA-k_USZE9XUDySMxgihYFbZN8HYRdzEGKwsyirQde1z0Jei3VARwEXvKA/exec';
 
-  // ---------- КЭШИРОВАНИЕ КУРСОВ ВАЛЮТ ----------
-  const CACHE_KEY = 'forex_rates_cache';
-  const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 часа
+  // Кэширование
+  const CACHE_KEY = 'forex_instruments_cache';
+  const CACHE_TIME_KEY = 'forex_cache_time';
+  const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 часа
 
-  let currencyRates = {}; // загруженные из API или кэша
-
-  // ---------- БАЗА ИНСТРУМЕНТОВ ----------
-  const instruments = [
-    // Прямые котировки
-    { symbol: "EURUSD", name: "Евро / Доллар", type: 'fixed10' },
-    { symbol: "GBPUSD", name: "Фунт / Доллар", type: 'fixed10' },
-    { symbol: "AUDUSD", name: "Австралиец / USD", type: 'fixed10' },
-    { symbol: "NZDUSD", name: "Киви / USD", type: 'fixed10' },
-    
-    // Обратные котировки
-    { symbol: "USDCAD", name: "Доллар / Канадец", type: 'inverse', base: 'USDCAD' },
-    { symbol: "USDCHF", name: "Доллар / Франк", type: 'inverse', base: 'USDCHF' },
-    { symbol: "USDJPY", name: "Доллар / Иена", type: 'jpy', base: 'USDJPY' },
-    
-    // Кроссы
-    { symbol: "EURGBP", name: "Евро / Фунт", type: 'cross', base1: 'EURUSD', base2: 'GBPUSD', divisor: true },
-    { symbol: "EURJPY", name: "Евро / Иена", type: 'crossJpy', base: 'EURUSD' },
-    { symbol: "EURCHF", name: "Евро / Франк", type: 'crossChf', base: 'EURUSD' },
-    { symbol: "EURAUD", name: "Евро / AUSD", type: 'cross', base1: 'EURUSD', base2: 'AUDUSD', divisor: true },
-    { symbol: "EURNZD", name: "Евро / NZD", type: 'cross', base1: 'EURUSD', base2: 'NZDUSD', divisor: true },
-    { symbol: "EURCAD", name: "Евро / CAD", type: 'crossCad', base: 'EURUSD' },
-    { symbol: "GBPJPY", name: "Фунт / Иена", type: 'crossJpy', base: 'GBPUSD' },
-    { symbol: "GBPCHF", name: "Фунт / Франк", type: 'crossChf', base: 'GBPUSD' },
-    { symbol: "GBPAUD", name: "Фунт / AUSD", type: 'cross', base1: 'GBPUSD', base2: 'AUDUSD', divisor: true },
-    { symbol: "GBPCAD", name: "Фунт / CAD", type: 'crossCad', base: 'GBPUSD' },
-    { symbol: "GBPNZD", name: "Фунт / NZD", type: 'cross', base1: 'GBPUSD', base2: 'NZDUSD', divisor: true },
-    { symbol: "AUDCAD", name: "AUD / CAD", type: 'crossCad', base: 'AUDUSD' },
-    { symbol: "AUDCHF", name: "AUD / CHF", type: 'crossChf', base: 'AUDUSD' },
-    { symbol: "AUDJPY", name: "AUD / JPY", type: 'crossJpy', base: 'AUDUSD' },
-    { symbol: "AUDNZD", name: "AUD / NZD", type: 'cross', base1: 'AUDUSD', base2: 'NZDUSD', divisor: true },
-    { symbol: "CADCHF", name: "CAD / CHF", type: 'crossChf', base: 'USDCAD', inverseBase: true },
-    { symbol: "CADJPY", name: "CAD / JPY", type: 'crossJpy', base: 'USDCAD', inverseBase: true },
-    { symbol: "CHFJPY", name: "CHF / JPY", type: 'crossJpy', base: 'USDCHF', inverseBase: true },
-    { symbol: "NZDCAD", name: "NZD / CAD", type: 'crossCad', base: 'NZDUSD' },
-    { symbol: "NZDCHF", name: "NZD / CHF", type: 'crossChf', base: 'NZDUSD' },
-    { symbol: "NZDJPY", name: "NZD / JPY", type: 'crossJpy', base: 'NZDUSD' },
-    
-    // Металлы (фикс)
+  // Ручные инструменты (фиксированная стоимость пункта)
+  const manualInstruments = [
     { symbol: "XAUUSD", name: "Золото / USD", type: 'gold' },
     { symbol: "XAGUSD", name: "Серебро / USD", type: 'silver' },
-    
-    // Индексы (ручной ввод)
-    { symbol: "US30", name: "Dow Jones", type: 'index', base: 'US30', tickValue: 1.0 },
-    { symbol: "NAS100", name: "NASDAQ 100", type: 'index', base: 'NAS100', tickValue: 1.0 },
-    { symbol: "SPX500", name: "S&P 500", type: 'index', base: 'SPX500', tickValue: 1.0 },
-    { symbol: "GER40", name: "DAX 40", type: 'index', base: null, tickValue: 1.1 },
-    { symbol: "UK100", name: "FTSE 100", type: 'index', base: null, tickValue: 1.2 },
-    { symbol: "JPN225", name: "Nikkei 225", type: 'index', base: null, tickValue: 0.9 },
-    { symbol: "AUS200", name: "ASX 200", type: 'index', base: null, tickValue: 0.7 },
-    { symbol: "US2000", name: "Russell 2000", type: 'index', base: null, tickValue: 0.5 },
-    { symbol: "FRA40", name: "CAC 40", type: 'index', base: null, tickValue: 1.1 },
-    { symbol: "ESTX50", name: "Euro Stoxx 50", type: 'index', base: null, tickValue: 1.1 },
-    { symbol: "HK50", name: "Hang Seng", type: 'index', base: null, tickValue: 0.5 },
+    { symbol: "US30", name: "Dow Jones", type: 'index', tickValue: 1.0 },
+    { symbol: "NAS100", name: "NASDAQ 100", type: 'index', tickValue: 1.0 },
+    { symbol: "SPX500", name: "S&P 500", type: 'index', tickValue: 1.0 },
+    { symbol: "GER40", name: "DAX 40", type: 'index', tickValue: 1.1 },
+    { symbol: "UK100", name: "FTSE 100", type: 'index', tickValue: 1.2 },
+    { symbol: "JPN225", name: "Nikkei 225", type: 'index', tickValue: 0.9 },
+    { symbol: "AUS200", name: "ASX 200", type: 'index', tickValue: 0.7 },
+    { symbol: "US2000", name: "Russell 2000", type: 'index', tickValue: 0.5 },
+    { symbol: "FRA40", name: "CAC 40", type: 'index', tickValue: 1.1 },
+    { symbol: "ESTX50", name: "Euro Stoxx 50", type: 'index', tickValue: 1.1 },
+    { symbol: "HK50", name: "Hang Seng", type: 'index', tickValue: 0.5 }
   ];
 
-  // Размеры пункта
+  let globalRates = {};
+  let instruments = [];
+  let currentInstrument = null;
+  let isRiskPercent = true;
+  let filteredInstruments = [];
+  let activeIndex = -1;
+
   const pipSizes = {
     default: 0.0001,
     jpy: 0.01,
@@ -85,45 +41,7 @@
     index: 1.0
   };
 
-  function getPipSize(inst) {
-    if (inst.symbol.includes('JPY')) return pipSizes.jpy;
-    if (inst.symbol === 'XAUUSD') return pipSizes.gold;
-    if (inst.symbol === 'XAGUSD') return pipSizes.silver;
-    if (inst.type === 'index') return pipSizes.index;
-    return pipSizes.default;
-  }
-
-  // Получение стоимости пункта
-  function getPointValue(inst) {
-    const rates = { ...globalRates, ...currencyRates };
-    switch (inst.type) {
-      case 'fixed10': return 10.0;
-      case 'inverse': return 10.0 / rates[inst.base];
-      case 'jpy': return 1000.0 / rates.USDJPY;
-      case 'cross':
-        const val1 = rates[inst.base1];
-        const val2 = rates[inst.base2];
-        return inst.divisor ? (val1 / val2) * 10.0 : (val1 * val2) * 10.0;
-      case 'crossJpy':
-        let baseRate = rates[inst.base];
-        if (inst.inverseBase) baseRate = 1.0 / rates[inst.base];
-        return (baseRate * 1000.0) / rates.USDJPY;
-      case 'crossChf':
-        let chfBase = rates[inst.base];
-        if (inst.inverseBase) chfBase = 1.0 / rates[inst.base];
-        return chfBase * (10.0 / rates.USDCHF);
-      case 'crossCad':
-        let cadBase = rates[inst.base];
-        if (inst.inverseBase) cadBase = 1.0 / rates[inst.base];
-        return cadBase * (10.0 / rates.USDCAD);
-      case 'gold': return 10.0;
-      case 'silver': return 50.0;
-      case 'index': return inst.tickValue || 1.0;
-      default: return 10.0;
-    }
-  }
-
-  // ---------- DOM элементы ----------
+  // DOM элементы
   const symbolSearch = document.getElementById('symbolSearch');
   const dropdownList = document.getElementById('dropdownList');
   const selectedSymbolInput = document.getElementById('selectedSymbol');
@@ -141,154 +59,174 @@
   const copyToast = document.getElementById('copyToast');
   const toggleRatesBtn = document.getElementById('toggleRatesBtn');
   const globalRatesPanel = document.getElementById('globalRatesPanel');
+  const ratesGrid = document.getElementById('ratesGrid');
   const statusIndicator = document.getElementById('statusIndicator');
   const statusText = document.getElementById('statusText');
   const lastUpdateTime = document.getElementById('lastUpdateTime');
   const statusLog = document.getElementById('statusLog');
   const refreshRatesBtn = document.getElementById('refreshRatesBtn');
 
-  const rateInputs = {
-    EURUSD: document.getElementById('rateEURUSD'),
-    GBPUSD: document.getElementById('rateGBPUSD'),
-    AUDUSD: document.getElementById('rateAUDUSD'),
-    NZDUSD: document.getElementById('rateNZDUSD'),
-    USDCAD: document.getElementById('rateUSDCAD'),
-    USDCHF: document.getElementById('rateUSDCHF'),
-    USDJPY: document.getElementById('rateUSDJPY'),
-    XAUUSD: document.getElementById('rateXAUUSD'),
-    US30: document.getElementById('rateUS30'),
-    NAS100: document.getElementById('rateNAS100'),
-    SPX500: document.getElementById('rateSPX500')
-  };
+  // ---------- Вспомогательные функции ----------
+  function getPipSize(inst) {
+    if (inst.symbol.includes('JPY')) return pipSizes.jpy;
+    if (inst.symbol === 'XAUUSD') return pipSizes.gold;
+    if (inst.symbol === 'XAGUSD') return pipSizes.silver;
+    if (inst.type === 'index') return pipSizes.index;
+    return pipSizes.default;
+  }
 
-  let currentInstrument = instruments.find(i => i.symbol === 'EURUSD');
-  let isRiskPercent = true;
-  let filteredInstruments = [...instruments];
-  let activeIndex = -1;
+  function getForexType(symbol) {
+    const quote = symbol.substring(3, 6);
+    const base = symbol.substring(0, 3);
+    if (quote === 'USD') return 'fixed10';
+    if (base === 'USD') return (quote === 'JPY') ? 'jpy' : 'inverse';
+    return 'cross';
+  }
 
-  // ---------- Работа с API и кэшем ----------
-  async function fetchCurrencyRates() {
-    try {
-      const response = await fetch('https://api.frankfurter.dev/latest?base=USD');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      return data.rates;
-    } catch (error) {
-      console.warn('Ошибка получения курсов:', error);
-      return null;
+  // Точная стоимость пункта
+  function getPointValue(inst) {
+    const rates = globalRates;
+    const symbol = inst.symbol;
+    const quote = symbol.substring(3, 6);
+    const base = symbol.substring(0, 3);
+
+    switch (inst.type) {
+      case 'fixed10': return 10.0;
+      case 'inverse': return 10.0 / rates[symbol];
+      case 'jpy': return 1000.0 / rates.USDJPY;
+      case 'cross': {
+        // Кроссы с CAD, CHF
+        if (quote === 'CAD') return 10.0 / rates.USDCAD;
+        if (quote === 'CHF') return 10.0 / rates.USDCHF;
+        
+        // JPY кроссы: точная формула через базовую валюту
+        if (quote === 'JPY') {
+          let baseRate;
+          if (base === 'USD') {
+            baseRate = 1;
+          } else {
+            // Прямой курс XXXUSD или обратный USDXXX
+            baseRate = rates[base + 'USD'] || (1.0 / rates['USD' + base]);
+          }
+          return baseRate * 1000.0 / rates.USDJPY;
+        }
+
+        // Общий случай (EURGBP, AUDNZD и т.д.)
+        const baseUsd = (base === 'USD') ? 1 : rates[base + 'USD'] || (1 / rates['USD' + base]);
+        const quoteUsd = (quote === 'USD') ? 1 : rates[quote + 'USD'] || (1 / rates['USD' + quote]);
+        return (baseUsd / quoteUsd) * 10.0;
+      }
+      case 'gold': return 10.0;
+      case 'silver': return 50.0;
+      case 'index': return inst.tickValue || 1.0;
+      default: return 10.0;
     }
   }
 
-  function saveToCache(rates) {
-    const cache = {
-      timestamp: Date.now(),
-      rates: rates
-    };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  // ---------- Загрузка данных из кэша или API ----------
+  async function fetchForexDataFromAPI() {
+    const response = await fetch(GAS_API_URL);
+    const data = await response.json();
+    const rates = {};
+    const forexPairs = [];
+    for (const [key, value] of Object.entries(data)) {
+      if (key.startsWith('CURRENCY:')) {
+        const symbol = key.replace('CURRENCY:', '');
+        rates[symbol] = value;
+        forexPairs.push({
+          symbol: symbol,
+          name: `${symbol.substring(0,3)} / ${symbol.substring(3,6)}`,
+          type: getForexType(symbol)
+        });
+      }
+    }
+    return { rates, forexPairs };
   }
 
   function loadFromCache() {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (!cached) return null;
-    try {
-      return JSON.parse(cached);
-    } catch {
+    const cachedData = localStorage.getItem(CACHE_KEY);
+    const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
+    if (!cachedData || !cachedTime) return null;
+    if (Date.now() - parseInt(cachedTime) > CACHE_DURATION_MS) {
+      localStorage.removeItem(CACHE_KEY);
+      localStorage.removeItem(CACHE_TIME_KEY);
       return null;
     }
+    try { return JSON.parse(cachedData); } catch { return null; }
   }
 
-  function isCacheValid(cache) {
-    if (!cache || !cache.timestamp) return false;
-    return (Date.now() - cache.timestamp) < CACHE_EXPIRY_MS;
+  function saveToCache(rates, forexPairs) {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ rates, forexPairs }));
+    localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
   }
 
-  function updateStatusUI(valid, ratesObj, errorMsg = null) {
-    if (valid && ratesObj) {
+  async function loadForexData(forceRefresh = false) {
+    try {
+      if (!forceRefresh) {
+        const cached = loadFromCache();
+        if (cached) {
+          globalRates = cached.rates;
+          instruments = [...cached.forexPairs, ...manualInstruments];
+          statusIndicator.textContent = '🟢';
+          statusText.textContent = `Загружено из кэша (${cached.forexPairs.length} пар)`;
+          lastUpdateTime.textContent = `Кэш от: ${new Date(parseInt(localStorage.getItem(CACHE_TIME_KEY))).toLocaleString('ru-RU')}`;
+          statusLog.textContent = '✅ Использованы сохранённые данные.';
+          renderGlobalRatesPanel(globalRates);
+          return true;
+        }
+      }
+
+      statusIndicator.textContent = '🔄';
+      statusText.textContent = 'Загрузка из Google Таблицы...';
+      const { rates, forexPairs } = await fetchForexDataFromAPI();
+      globalRates = rates;
+      instruments = [...forexPairs, ...manualInstruments];
+      saveToCache(rates, forexPairs);
+      
+      lastUpdateTime.textContent = `Обновлено: ${new Date().toLocaleString('ru-RU')}`;
       statusIndicator.textContent = '🟢';
-      statusText.textContent = 'Курсы валют актуальны';
-      const cache = loadFromCache();
-      if (cache) {
-        lastUpdateTime.textContent = `Обновлено: ${new Date(cache.timestamp).toLocaleString('ru-RU')}`;
+      statusText.textContent = `Загружено ${forexPairs.length} валютных пар`;
+      statusLog.textContent = '✅ Данные успешно получены из Google Таблицы.';
+      renderGlobalRatesPanel(rates);
+      return true;
+    } catch (error) {
+      console.error('Ошибка загрузки:', error);
+      statusIndicator.textContent = '🔴';
+      statusText.textContent = 'Ошибка загрузки данных';
+      statusLog.textContent = 'Не удалось загрузить курсы. Проверьте подключение и URL.';
+      instruments = [...manualInstruments];
+      return false;
+    }
+  }
+
+  function renderGlobalRatesPanel(rates) {
+    ratesGrid.innerHTML = '';
+    Object.keys(rates).sort().forEach(symbol => {
+      const div = document.createElement('div');
+      div.className = 'rate-item';
+      div.innerHTML = `
+        <label>${symbol}</label>
+        <input type="number" id="rate_${symbol}" step="0.00001" value="${rates[symbol].toFixed(5)}">
+      `;
+      ratesGrid.appendChild(div);
+    });
+    Object.keys(rates).forEach(symbol => {
+      const input = document.getElementById(`rate_${symbol}`);
+      if (input) {
+        input.addEventListener('input', () => {
+          globalRates[symbol] = parseFloat(input.value) || rates[symbol];
+          if (currentInstrument && !['gold','silver','index'].includes(currentInstrument.type)) {
+            calculateAll();
+          }
+        });
       }
-      const missing = [];
-      const required = ['EUR', 'GBP', 'AUD', 'NZD', 'CAD', 'CHF', 'JPY'];
-      required.forEach(curr => {
-        if (!ratesObj[curr]) missing.push(`USD${curr}`);
-      });
-      if (missing.length) {
-        statusLog.textContent = `⚠️ Не получены курсы: ${missing.join(', ')}`;
-      } else {
-        statusLog.textContent = '✅ Все валютные курсы загружены.';
-      }
-    } else {
-      statusIndicator.textContent = '🟡';
-      statusText.textContent = errorMsg || 'Используются кэшированные/ручные курсы';
-      const cache = loadFromCache();
-      if (cache) {
-        lastUpdateTime.textContent = `Кэш от: ${new Date(cache.timestamp).toLocaleString('ru-RU')}`;
-      } else {
-        lastUpdateTime.textContent = 'Нет данных';
-      }
-      statusLog.textContent = errorMsg || 'Проверьте подключение к интернету.';
-    }
+    });
   }
 
-  async function loadRates(forceRefresh = false) {
-    const cache = loadFromCache();
-    if (!forceRefresh && isCacheValid(cache)) {
-      currencyRates = cache.rates;
-      updateStatusUI(true, currencyRates);
-      return;
-    }
-
-    if (forceRefresh && isCacheValid(cache)) {
-      statusLog.textContent = 'ℹ️ Данные и так актуальны (прошло менее 24 часов).';
-      currencyRates = cache.rates;
-      updateStatusUI(true, currencyRates);
-      return;
-    }
-
-    statusIndicator.textContent = '🔄';
-    statusText.textContent = 'Загрузка курсов...';
-    const rates = await fetchCurrencyRates();
-    if (rates) {
-      currencyRates = rates;
-      saveToCache(rates);
-      updateStatusUI(true, rates);
-    } else {
-      if (cache) {
-        currencyRates = cache.rates;
-        updateStatusUI(false, null, 'Не удалось обновить. Используется кэш.');
-      } else {
-        updateStatusUI(false, null, 'Нет соединения и кэша. Введите курсы вручную.');
-      }
-    }
-  }
-
-  // ---------- Обновление глобальных курсов из полей ----------
-  function updateGlobalRatesFromInputs() {
-    for (let key in rateInputs) {
-      const val = parseFloat(rateInputs[key].value);
-      if (!isNaN(val)) globalRates[key] = val;
-    }
-  }
-
-  function syncInputsWithRates() {
-    for (let key in rateInputs) {
-      rateInputs[key].value = globalRates[key];
-    }
-  }
-
-  function onRatesChanged() {
-    updateGlobalRatesFromInputs();
-    setExamplePrices(currentInstrument);
-    calculateAll();
-  }
-
-  // ---------- Выбор инструмента и расчёт ----------
+  // ---------- Поиск и выбор ----------
   function renderDropdown(items) {
     dropdownList.innerHTML = '';
-    if (items.length === 0) {
+    if (!items.length) {
       const empty = document.createElement('div');
       empty.className = 'dropdown-item';
       empty.style.color = '#6b7c9e';
@@ -310,7 +248,7 @@
   function filterInstruments(query) {
     if (!query.trim()) return instruments;
     const q = query.trim().toUpperCase();
-    return instruments.filter(inst => inst.symbol.toUpperCase().includes(q) || inst.name.toUpperCase().includes(q));
+    return instruments.filter(i => i.symbol.toUpperCase().includes(q) || i.name.toUpperCase().includes(q));
   }
 
   function showDropdown() { dropdownList.classList.remove('hidden'); }
@@ -320,20 +258,20 @@
     currentInstrument = inst;
     selectedSymbolInput.value = inst.symbol;
     symbolSearch.value = inst.symbol + ' — ' + inst.name;
-    setExamplePrices(inst);
+    setPlaceholders(inst);
     hideDropdown();
     calculateAll();
   }
 
-  function setExamplePrices(inst) {
+  function setPlaceholders(inst) {
     if (inst.symbol.includes('JPY')) {
-      entryPriceInput.value = '150.50'; stopPriceInput.value = '150.00';
+      entryPriceInput.placeholder = '150.50'; stopPriceInput.placeholder = '150.00';
     } else if (inst.symbol === 'XAUUSD') {
-      entryPriceInput.value = '2350.00'; stopPriceInput.value = '2348.00';
+      entryPriceInput.placeholder = '2350.00'; stopPriceInput.placeholder = '2348.00';
     } else if (inst.type === 'index') {
-      entryPriceInput.value = '39200'; stopPriceInput.value = '39180';
+      entryPriceInput.placeholder = '39200'; stopPriceInput.placeholder = '39180';
     } else {
-      entryPriceInput.value = '1.0850'; stopPriceInput.value = '1.0830';
+      entryPriceInput.placeholder = '1.0850'; stopPriceInput.placeholder = '1.0830';
     }
   }
 
@@ -341,19 +279,17 @@
     const entry = parseFloat(entryPriceInput.value);
     const stop = parseFloat(stopPriceInput.value);
     if (isNaN(entry) || isNaN(stop) || !currentInstrument) return 0;
-    const diff = Math.abs(entry - stop);
-    return diff / getPipSize(currentInstrument);
+    return Math.abs(entry - stop) / getPipSize(currentInstrument);
   }
 
   function calculateAll() {
+    if (!currentInstrument) return;
     const balance = parseFloat(balanceInput.value) || 0;
     const riskVal = parseFloat(riskValueInput.value) || 0;
     const pips = calculatePips();
     const pointVal = getPointValue(currentInstrument);
-
-    let riskMoney = isRiskPercent ? balance * (riskVal / 100) : riskVal;
-    let lotSize = (pips > 0 && pointVal > 0 && riskMoney > 0) ? riskMoney / (pips * pointVal) : 0;
-
+    const riskMoney = isRiskPercent ? balance * (riskVal / 100) : riskVal;
+    const lotSize = (pips > 0 && pointVal > 0 && riskMoney > 0) ? riskMoney / (pips * pointVal) : 0;
     lotSizeDisplay.textContent = lotSize.toFixed(2);
     riskMoneySpan.textContent = `$${riskMoney.toFixed(2)}`;
     pipsCountSpan.textContent = pips.toFixed(1);
@@ -361,17 +297,23 @@
 
   // ---------- Инициализация ----------
   async function init() {
-    // Загружаем курсы валют (из кэша или API)
-    await loadRates();
+    balanceInput.value = '';
+    riskValueInput.value = '';
+    entryPriceInput.value = '';
+    stopPriceInput.value = '';
+    symbolSearch.value = '';
+    selectedSymbolInput.value = '';
+    lotSizeDisplay.textContent = '0.00';
+    riskMoneySpan.textContent = '$0.00';
+    pipsCountSpan.textContent = '0.0';
 
-    // Синхронизируем поля глобальных курсов
-    syncInputsWithRates();
+    balanceInput.placeholder = '10000';
+    riskValueInput.placeholder = '1.0';
+    entryPriceInput.placeholder = '1.0850';
+    stopPriceInput.placeholder = '1.0830';
 
-    // Устанавливаем инструмент по умолчанию
-    const def = instruments.find(i => i.symbol === 'EURUSD') || instruments[0];
-    selectInstrument(def);
+    await loadForexData();
 
-    // Обработчики событий
     symbolSearch.addEventListener('input', () => {
       filteredInstruments = filterInstruments(symbolSearch.value);
       activeIndex = -1;
@@ -414,8 +356,8 @@
       riskFixedBtn.classList.remove('active');
       isRiskPercent = true;
       riskLabel.textContent = 'Риск (%)';
+      riskValueInput.placeholder = '1.0';
       riskValueInput.step = '0.1';
-      riskValueInput.min = '0.1';
       calculateAll();
     });
     riskFixedBtn.addEventListener('click', () => {
@@ -423,8 +365,8 @@
       riskPercentBtn.classList.remove('active');
       isRiskPercent = false;
       riskLabel.textContent = 'Риск ($)';
+      riskValueInput.placeholder = '100';
       riskValueInput.step = '1';
-      riskValueInput.min = '1';
       calculateAll();
     });
 
@@ -438,23 +380,11 @@
       } catch { alert('Не удалось скопировать'); }
     });
 
-    toggleRatesBtn.addEventListener('click', () => {
-      globalRatesPanel.classList.toggle('hidden');
-    });
-
+    toggleRatesBtn.addEventListener('click', () => globalRatesPanel.classList.toggle('hidden'));
     refreshRatesBtn.addEventListener('click', async () => {
-      await loadRates(true);
-      syncInputsWithRates();
-      calculateAll();
+      await loadForexData(true);
+      if (currentInstrument) calculateAll();
     });
-
-    for (let key in rateInputs) {
-      rateInputs[key].addEventListener('input', () => {
-        onRatesChanged();
-      });
-    }
-
-    calculateAll();
   }
 
   init();

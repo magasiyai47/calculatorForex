@@ -6,6 +6,7 @@
   <title>Forex Lot Calculator</title>
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
+  <link rel="icon" href="e765df1bfcf82f97409617ceb4f30b35.jpg" type="image/x-icon">
 </head>
 <body>
   <div class="animated-bg"></div>
@@ -13,58 +14,13 @@
     <div class="calculator-card">
       <div class="card-header">
         <h1>📊 Калькулятор лота</h1>
-        <button class="rates-toggle" id="toggleRatesBtn" title="Настроить глобальные курсы">⚙️ Курсы</button>
+        <button class="rates-toggle" id="toggleRatesBtn" title="Настроить курсы валют (если нужно)">⚙️ Курсы</button>
       </div>
 
-      <!-- Панель глобальных курсов (скрываемая) -->
+      <!-- Панель глобальных курсов (только валютные пары) -->
       <div id="globalRatesPanel" class="global-rates-panel hidden">
-        <div class="rates-grid">
-          <div class="rate-item">
-            <label>EURUSD</label>
-            <input type="number" id="rateEURUSD" step="0.00001" value="1.0850">
-          </div>
-          <div class="rate-item">
-            <label>GBPUSD</label>
-            <input type="number" id="rateGBPUSD" step="0.00001" value="1.2650">
-          </div>
-          <div class="rate-item">
-            <label>AUDUSD</label>
-            <input type="number" id="rateAUDUSD" step="0.00001" value="0.6520">
-          </div>
-          <div class="rate-item">
-            <label>NZDUSD</label>
-            <input type="number" id="rateNZDUSD" step="0.00001" value="0.5980">
-          </div>
-          <div class="rate-item">
-            <label>USDCAD</label>
-            <input type="number" id="rateUSDCAD" step="0.00001" value="1.3580">
-          </div>
-          <div class="rate-item">
-            <label>USDCHF</label>
-            <input type="number" id="rateUSDCHF" step="0.00001" value="0.9030">
-          </div>
-          <div class="rate-item">
-            <label>USDJPY</label>
-            <input type="number" id="rateUSDJPY" step="0.01" value="158.00">
-          </div>
-          <div class="rate-item">
-            <label>XAUUSD</label>
-            <input type="number" id="rateXAUUSD" step="0.01" value="2350.00">
-          </div>
-          <div class="rate-item">
-            <label>US30</label>
-            <input type="number" id="rateUS30" step="1" value="39200">
-          </div>
-          <div class="rate-item">
-            <label>NAS100</label>
-            <input type="number" id="rateNAS100" step="1" value="18300">
-          </div>
-          <div class="rate-item">
-            <label>SPX500</label>
-            <input type="number" id="rateSPX500" step="0.1" value="5220.0">
-          </div>
-        </div>
-        <p class="rates-hint">Индексы и металлы — обновляйте вручную.</p>
+        <div class="rates-grid" id="ratesGrid"></div>
+        <p class="rates-hint">Эти курсы получены из Google Таблицы. Можно корректировать вручную.</p>
       </div>
 
       <!-- Поиск инструмента -->
@@ -74,13 +30,13 @@
           <input type="text" id="symbolSearch" placeholder="Например: EURUSD, XAUUSD..." autocomplete="off">
           <div id="dropdownList" class="dropdown-list hidden"></div>
         </div>
-        <input type="hidden" id="selectedSymbol" value="EURUSD">
+        <input type="hidden" id="selectedSymbol" value="">
       </div>
 
       <!-- Баланс -->
       <div class="input-group compact">
         <label for="balance">💰 Баланс ($)</label>
-        <input type="number" id="balance" step="100" min="1" value="10000">
+        <input type="number" id="balance" step="100" min="1" placeholder="10000">
       </div>
 
       <!-- Риск -->
@@ -91,7 +47,7 @@
         </div>
         <div class="input-group compact risk-input">
           <label for="riskValue" id="riskLabel">Риск (%)</label>
-          <input type="number" id="riskValue" step="0.1" min="0.1" value="1.0">
+          <input type="number" id="riskValue" step="0.1" min="0.1" placeholder="1.0">
         </div>
       </div>
 
@@ -99,32 +55,32 @@
       <div class="price-row">
         <div class="input-group compact half">
           <label for="entryPrice">📈 Вход</label>
-          <input type="number" id="entryPrice" step="any" value="1.0850" placeholder="1.0850">
+          <input type="number" id="entryPrice" step="any" placeholder="1.0850">
         </div>
         <div class="input-group compact half">
           <label for="stopPrice">🛑 Стоп</label>
-          <input type="number" id="stopPrice" step="any" value="1.0830" placeholder="1.0830">
+          <input type="number" id="stopPrice" step="any" placeholder="1.0830">
         </div>
       </div>
 
       <!-- Результат -->
       <div class="result-box">
         <div class="result-label">РАЗМЕР ЛОТА</div>
-        <div class="result-value" id="lotSizeDisplay">0.50</div>
+        <div class="result-value" id="lotSizeDisplay">—</div>
         <div class="result-secondary">
-          Риск: <span id="riskMoney">$100.00</span> &nbsp;|&nbsp; Пунктов: <span id="pipsCount">20.0</span>
+          Риск: <span id="riskMoney">$0.00</span> &nbsp;|&nbsp; Пунктов: <span id="pipsCount">0.0</span>
         </div>
         <button class="copy-btn" id="copyLotBtn" title="Скопировать размер лота">📋 Копировать лот</button>
       </div>
 
-      <!-- Панель статуса курсов -->
-      <div class="status-panel" id="statusPanel">
+      <!-- Панель статуса -->
+      <div class="status-panel">
         <div class="status-header">
-          <span class="status-indicator" id="statusIndicator">🟡</span>
-          <span class="status-text" id="statusText">Загрузка курсов...</span>
-          <button class="refresh-btn" id="refreshRatesBtn" title="Обновить курсы валют">🔄</button>
+          <span class="status-indicator" id="statusIndicator">🔄</span>
+          <span class="status-text" id="statusText">Загрузка данных...</span>
+          <button class="refresh-btn" id="refreshRatesBtn" title="Обновить курсы из таблицы">🔄</button>
         </div>
-        <div class="status-details" id="statusDetails">
+        <div class="status-details">
           <span id="lastUpdateTime">—</span>
         </div>
         <div class="status-log" id="statusLog"></div>
