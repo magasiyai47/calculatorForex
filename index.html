@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <title>Forex Lot Calculator</title>
   <link rel="stylesheet" href="style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
   <link rel="icon" href="e765df1bfcf82f97409617ceb4f30b35.jpg" type="image/x-icon">
 </head>
 <body>
@@ -13,80 +13,128 @@
   <div class="wrapper">
     <div class="calculator-card">
       <div class="card-header">
-        <h1>📊 Калькулятор лота</h1>
-        <button class="rates-toggle" id="toggleRatesBtn" title="Настроить курсы валют (если нужно)">⚙️ Курсы</button>
+        <h1>Forex Calculator</h1>
+        <button class="rates-toggle" id="toggleRatesBtn" title="Открыть курсы валют">Курсы</button>
       </div>
 
-      <!-- Панель глобальных курсов (только валютные пары) -->
+      <div class="app-tabs" aria-label="Разделы калькулятора">
+        <button type="button" class="app-tab active" id="calculatorTabBtn" data-tab="calculator">Калькулятор</button>
+        <button type="button" class="app-tab" id="copyTabBtn" data-tab="copy">COPY</button>
+      </div>
+
       <div id="globalRatesPanel" class="global-rates-panel hidden">
         <div class="rates-grid" id="ratesGrid"></div>
-        <p class="rates-hint">Эти курсы получены из Google Таблицы. Можно корректировать вручную.</p>
+        <p class="rates-hint">Актуальные курсы из Google Таблицы. Раздел только для просмотра.</p>
       </div>
 
-      <!-- Поиск инструмента -->
-      <div class="input-group compact">
-        <label for="symbolSearch">🔍 Инструмент</label>
-        <div class="search-wrapper">
-          <input type="text" id="symbolSearch" placeholder="Например: EURUSD, XAUUSD..." autocomplete="off">
-          <div id="dropdownList" class="dropdown-list hidden"></div>
+      <div id="calculatorPanel" class="tab-panel active">
+        <div class="input-group compact">
+          <label for="symbolSearch">Инструмент</label>
+          <div class="search-wrapper">
+            <input type="text" id="symbolSearch" placeholder="Например: EURUSD, XAUUSD..." autocomplete="off">
+            <button type="button" class="clear-search-btn hidden" id="clearSymbolBtn" title="Очистить инструмент">×</button>
+            <div id="dropdownList" class="dropdown-list hidden"></div>
+          </div>
+          <input type="hidden" id="selectedSymbol" value="">
         </div>
-        <input type="hidden" id="selectedSymbol" value="">
+
+        <div class="input-group compact">
+          <label for="balance">Баланс ($)</label>
+          <input type="number" id="balance" step="100" min="1" placeholder="10000">
+        </div>
+
+        <div class="risk-row">
+          <div class="risk-toggle">
+            <button type="button" id="riskPercentBtn" class="toggle-btn active">%</button>
+            <button type="button" id="riskFixedBtn" class="toggle-btn">$</button>
+          </div>
+          <div class="input-group compact risk-input">
+            <label for="riskValue" id="riskLabel">Риск (%)</label>
+            <input type="number" id="riskValue" step="0.1" min="0.1" placeholder="1.0">
+          </div>
+        </div>
+
+        <div class="price-row">
+          <div class="input-group compact half">
+            <label for="entryPrice">Вход</label>
+            <input type="number" id="entryPrice" step="any" placeholder="1.0850">
+          </div>
+          <div class="input-group compact half">
+            <label for="stopPrice">Стоп</label>
+            <input type="number" id="stopPrice" step="any" placeholder="1.0830">
+          </div>
+        </div>
+
+        <div class="result-box">
+          <div class="result-label">Размер лота</div>
+          <div class="result-value" id="lotSizeDisplay">0.00</div>
+          <div class="result-secondary">
+            Риск: <span id="riskMoney">$0.00</span> &nbsp;|&nbsp; Пипсы: <span id="pipsCount">0.0</span>
+          </div>
+          <button class="copy-btn" id="copyLotBtn" title="Скопировать размер лота">Скопировать лот</button>
+        </div>
       </div>
 
-      <!-- Баланс -->
-      <div class="input-group compact">
-        <label for="balance">💰 Баланс ($)</label>
-        <input type="number" id="balance" step="100" min="1" placeholder="10000">
+      <div id="copyPanel" class="tab-panel">
+        <div class="input-group compact">
+          <label for="copyEntryPrice">Цена входа</label>
+          <input type="number" id="copyEntryPrice" step="any" placeholder="0.59297">
+        </div>
+
+        <div class="price-row">
+          <div class="input-group compact full">
+            <label for="copyDirection">Направление</label>
+            <select id="copyDirection">
+              <option value="buy">BUY</option>
+              <option value="sell" selected>SELL</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="price-row">
+          <div class="input-group compact half">
+            <label for="copySlPips">Stop Loss, пипсы</label>
+            <input type="number" id="copySlPips" step="1" min="1" value="100" placeholder="100">
+          </div>
+          <div class="input-group compact half">
+            <label for="copyTpPips">Take Profit, пипсы</label>
+            <input type="number" id="copyTpPips" step="1" min="1" value="40" placeholder="40">
+          </div>
+        </div>
+
+        <button class="copy-btn primary-action" id="calculateCopyBtn">Рассчитать для Copy</button>
+
+        <div class="copy-result-box hidden" id="copyResultBox">
+          <button type="button" class="copy-result-row copy-result-action" data-copy-target="entry">
+            <span>Вход</span>
+            <strong id="copyEntryResult">-</strong>
+          </button>
+          <button type="button" class="copy-result-row copy-result-action danger" data-copy-target="sl">
+            <span>SL</span>
+            <strong id="copySlResult">-</strong>
+            <small id="copySlDistance">-</small>
+          </button>
+          <button type="button" class="copy-result-row copy-result-action success" data-copy-target="tp">
+            <span>TP</span>
+            <strong id="copyTpResult">-</strong>
+            <small id="copyTpDistance">-</small>
+          </button>
+        </div>
       </div>
 
-      <!-- Риск -->
-      <div class="risk-row">
-        <div class="risk-toggle">
-          <button type="button" id="riskPercentBtn" class="toggle-btn active">%</button>
-          <button type="button" id="riskFixedBtn" class="toggle-btn">$</button>
-        </div>
-        <div class="input-group compact risk-input">
-          <label for="riskValue" id="riskLabel">Риск (%)</label>
-          <input type="number" id="riskValue" step="0.1" min="0.1" placeholder="1.0">
-        </div>
-      </div>
-
-      <!-- Цены -->
-      <div class="price-row">
-        <div class="input-group compact half">
-          <label for="entryPrice">📈 Вход</label>
-          <input type="number" id="entryPrice" step="any" placeholder="1.0850">
-        </div>
-        <div class="input-group compact half">
-          <label for="stopPrice">🛑 Стоп</label>
-          <input type="number" id="stopPrice" step="any" placeholder="1.0830">
-        </div>
-      </div>
-
-      <!-- Результат -->
-      <div class="result-box">
-        <div class="result-label">РАЗМЕР ЛОТА</div>
-        <div class="result-value" id="lotSizeDisplay">—</div>
-        <div class="result-secondary">
-          Риск: <span id="riskMoney">$0.00</span> &nbsp;|&nbsp; Пунктов: <span id="pipsCount">0.0</span>
-        </div>
-        <button class="copy-btn" id="copyLotBtn" title="Скопировать размер лота">📋 Копировать лот</button>
-      </div>
-
-      <!-- Панель статуса -->
       <div class="status-panel">
         <div class="status-header">
-          <span class="status-indicator" id="statusIndicator">🔄</span>
+          <span class="status-indicator" id="statusIndicator">...</span>
           <span class="status-text" id="statusText">Загрузка данных...</span>
-          <button class="refresh-btn" id="refreshRatesBtn" title="Обновить курсы из таблицы">🔄</button>
+          <button class="refresh-btn" id="refreshRatesBtn" title="Обновить курсы">↻</button>
         </div>
         <div class="status-details">
-          <span id="lastUpdateTime">—</span>
+          <span id="lastUpdateTime">-</span>
         </div>
         <div class="status-log" id="statusLog"></div>
       </div>
 
-      <div id="copyToast" class="toast hidden">Лот скопирован</div>
+      <div id="copyToast" class="toast hidden">Скопировано</div>
     </div>
   </div>
   <script src="script.js"></script>

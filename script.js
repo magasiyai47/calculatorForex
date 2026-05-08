@@ -43,6 +43,7 @@
 
   // DOM элементы
   const symbolSearch = document.getElementById('symbolSearch');
+  const clearSymbolBtn = document.getElementById('clearSymbolBtn');
   const dropdownList = document.getElementById('dropdownList');
   const selectedSymbolInput = document.getElementById('selectedSymbol');
   const balanceInput = document.getElementById('balance');
@@ -65,6 +66,22 @@
   const lastUpdateTime = document.getElementById('lastUpdateTime');
   const statusLog = document.getElementById('statusLog');
   const refreshRatesBtn = document.getElementById('refreshRatesBtn');
+  const calculatorTabBtn = document.getElementById('calculatorTabBtn');
+  const copyTabBtn = document.getElementById('copyTabBtn');
+  const calculatorPanel = document.getElementById('calculatorPanel');
+  const copyPanel = document.getElementById('copyPanel');
+  const copyEntryPriceInput = document.getElementById('copyEntryPrice');
+  const copyDirectionSelect = document.getElementById('copyDirection');
+  const copySlPipsSelect = document.getElementById('copySlPips');
+  const copyTpPipsSelect = document.getElementById('copyTpPips');
+  const calculateCopyBtn = document.getElementById('calculateCopyBtn');
+  const copyResultBox = document.getElementById('copyResultBox');
+  const copyEntryResult = document.getElementById('copyEntryResult');
+  const copySlResult = document.getElementById('copySlResult');
+  const copyTpResult = document.getElementById('copyTpResult');
+  const copySlDistance = document.getElementById('copySlDistance');
+  const copyTpDistance = document.getElementById('copyTpDistance');
+  const copyResultActions = document.querySelectorAll('.copy-result-action');
 
   // ---------- Вспомогательные функции ----------
   function getPipSize(inst) {
@@ -206,20 +223,9 @@
       div.className = 'rate-item';
       div.innerHTML = `
         <label>${symbol}</label>
-        <input type="number" id="rate_${symbol}" step="0.00001" value="${rates[symbol].toFixed(5)}">
+        <div class="rate-value">${Number(rates[symbol]).toFixed(5)}</div>
       `;
       ratesGrid.appendChild(div);
-    });
-    Object.keys(rates).forEach(symbol => {
-      const input = document.getElementById(`rate_${symbol}`);
-      if (input) {
-        input.addEventListener('input', () => {
-          globalRates[symbol] = parseFloat(input.value) || rates[symbol];
-          if (currentInstrument && !['gold','silver','index'].includes(currentInstrument.type)) {
-            calculateAll();
-          }
-        });
-      }
     });
   }
 
@@ -254,10 +260,27 @@
   function showDropdown() { dropdownList.classList.remove('hidden'); }
   function hideDropdown() { dropdownList.classList.add('hidden'); activeIndex = -1; }
 
+  function updateClearSymbolButton() {
+    clearSymbolBtn.classList.toggle('hidden', !symbolSearch.value.trim());
+  }
+
+  function clearSelectedInstrument() {
+    currentInstrument = null;
+    selectedSymbolInput.value = '';
+    symbolSearch.value = '';
+    lotSizeDisplay.textContent = '0.00';
+    riskMoneySpan.textContent = '$0.00';
+    pipsCountSpan.textContent = '0.0';
+    updateClearSymbolButton();
+    hideDropdown();
+    symbolSearch.focus();
+  }
+
   function selectInstrument(inst) {
     currentInstrument = inst;
     selectedSymbolInput.value = inst.symbol;
     symbolSearch.value = inst.symbol + ' — ' + inst.name;
+    updateClearSymbolButton();
     setPlaceholders(inst);
     hideDropdown();
     calculateAll();
@@ -295,6 +318,99 @@
     pipsCountSpan.textContent = pips.toFixed(1);
   }
 
+  function switchTab(tabName) {
+    const isCalculator = tabName === 'calculator';
+    const isCopy = tabName === 'copy';
+    const isRates = tabName === 'rates';
+
+    calculatorTabBtn.classList.toggle('active', isCalculator);
+    copyTabBtn.classList.toggle('active', isCopy);
+    calculatorPanel.classList.toggle('active', isCalculator);
+    copyPanel.classList.toggle('active', isCopy);
+    globalRatesPanel.classList.toggle('hidden', !isRates);
+  }
+
+  function getPriceDecimals(rawValue) {
+    const value = String(rawValue).trim().replace(',', '.');
+    const decimalPart = value.includes('.') ? value.split('.')[1] : '';
+    return Math.min(Math.max(decimalPart.length || 2, 2), 5);
+  }
+
+  function getCopyPipSize(decimals, entry) {
+    if (entry >= 1000 && decimals <= 2) return 0.1;
+    if (decimals === 3) return 0.01;
+    if (decimals === 2) return 0.1;
+    return 0.0001;
+  }
+
+  function randomInt(min, max) {
+    return Math.floor(randomFloat() * (max - min + 1)) + min;
+  }
+
+  function randomFloat() {
+    if (window.crypto && window.crypto.getRandomValues) {
+      const values = new Uint32Array(1);
+      window.crypto.getRandomValues(values);
+      return values[0] / 4294967295;
+    }
+    return Math.random();
+  }
+
+  function getRandomizedPips(basePips) {
+    const points = basePips * 10;
+    const maxSpread = 50;
+    const spread = randomInt(1, maxSpread);
+    const sign = randomFloat() < 0.5 ? -1 : 1;
+    const randomizedPoints = Math.max(1, points + (sign * spread));
+    return randomizedPoints / 10;
+  }
+
+  function calculateCopyTrade() {
+    const rawEntry = copyEntryPriceInput.value;
+    const entry = parseFloat(rawEntry);
+    const direction = copyDirectionSelect.value;
+    const decimals = getPriceDecimals(rawEntry);
+    const slBasePips = parseFloat(copySlPipsSelect.value);
+    const tpBasePips = parseFloat(copyTpPipsSelect.value);
+
+    if (isNaN(entry) || entry <= 0) {
+      alert('Введите корректную цену входа');
+      return;
+    }
+
+    if (isNaN(slBasePips) || slBasePips <= 0 || isNaN(tpBasePips) || tpBasePips <= 0) {
+      alert('Введите корректные значения SL и TP в пипсах');
+      return;
+    }
+
+    const pipSize = getCopyPipSize(decimals, entry);
+    const slPips = getRandomizedPips(slBasePips);
+    const tpPips = getRandomizedPips(tpBasePips);
+    const isBuy = direction === 'buy';
+    const sl = isBuy ? entry - (slPips * pipSize) : entry + (slPips * pipSize);
+    const tp = isBuy ? entry + (tpPips * pipSize) : entry - (tpPips * pipSize);
+
+    copyEntryResult.textContent = entry.toFixed(decimals);
+    copySlResult.textContent = sl.toFixed(decimals);
+    copyTpResult.textContent = tp.toFixed(decimals);
+    copySlDistance.textContent = `${slPips.toFixed(1)} пипс.`;
+    copyTpDistance.textContent = `${tpPips.toFixed(1)} пипс.`;
+    copyResultBox.classList.remove('hidden');
+  }
+
+  async function copyTextValue(text, message) {
+    if (!text || text === '-') return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      copyToast.textContent = message;
+      copyToast.classList.remove('hidden');
+      setTimeout(() => copyToast.classList.add('hidden'), 1500);
+    } catch {
+      alert('Не удалось скопировать');
+    }
+  }
+
   // ---------- Инициализация ----------
   async function init() {
     balanceInput.value = '';
@@ -311,10 +427,36 @@
     riskValueInput.placeholder = '1.0';
     entryPriceInput.placeholder = '1.0850';
     stopPriceInput.placeholder = '1.0830';
+    copyEntryPriceInput.value = '';
+    copyResultBox.classList.add('hidden');
 
     await loadForexData();
 
+    calculatorTabBtn.addEventListener('click', () => switchTab('calculator'));
+    copyTabBtn.addEventListener('click', () => switchTab('copy'));
+    toggleRatesBtn.addEventListener('click', () => switchTab('rates'));
+    calculateCopyBtn.addEventListener('click', calculateCopyTrade);
+    copyEntryPriceInput.addEventListener('input', () => copyResultBox.classList.add('hidden'));
+    [copyDirectionSelect, copySlPipsSelect, copyTpPipsSelect].forEach(el => {
+      el.addEventListener('change', () => copyResultBox.classList.add('hidden'));
+      el.addEventListener('input', () => copyResultBox.classList.add('hidden'));
+    });
+    copyResultActions.forEach(row => {
+      row.addEventListener('click', () => {
+        const target = row.dataset.copyTarget;
+        const value = target === 'entry'
+          ? copyEntryResult.textContent
+          : target === 'sl'
+            ? copySlResult.textContent
+            : copyTpResult.textContent;
+        copyTextValue(value, `${row.querySelector('span').textContent} скопирован`);
+      });
+    });
+
     symbolSearch.addEventListener('input', () => {
+      updateClearSymbolButton();
+      selectedSymbolInput.value = '';
+      currentInstrument = null;
       filteredInstruments = filterInstruments(symbolSearch.value);
       activeIndex = -1;
       renderDropdown(filteredInstruments);
@@ -348,8 +490,9 @@
       }
     });
     document.addEventListener('click', (e) => {
-      if (!symbolSearch.contains(e.target) && !dropdownList.contains(e.target)) hideDropdown();
+      if (!symbolSearch.contains(e.target) && !dropdownList.contains(e.target) && !clearSymbolBtn.contains(e.target)) hideDropdown();
     });
+    clearSymbolBtn.addEventListener('click', clearSelectedInstrument);
 
     riskPercentBtn.addEventListener('click', () => {
       riskPercentBtn.classList.add('active');
@@ -375,12 +518,12 @@
     copyLotBtn.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(lotSizeDisplay.textContent);
+        copyToast.textContent = 'Лот скопирован';
         copyToast.classList.remove('hidden');
         setTimeout(() => copyToast.classList.add('hidden'), 1500);
       } catch { alert('Не удалось скопировать'); }
     });
 
-    toggleRatesBtn.addEventListener('click', () => globalRatesPanel.classList.toggle('hidden'));
     refreshRatesBtn.addEventListener('click', async () => {
       await loadForexData(true);
       if (currentInstrument) calculateAll();
