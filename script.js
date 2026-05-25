@@ -356,14 +356,28 @@
     return Math.random();
   }
 
-  function getRandomizedPips(basePips) {
-    const points = basePips * 10;
-    const maxSpread = 50;
-    const spread = randomInt(1, maxSpread);
-    const sign = randomFloat() < 0.5 ? -1 : 1;
-    const randomizedPoints = Math.max(1, points + (sign * spread));
-    return randomizedPoints / 10;
-  }
+  // Только положительный рандом (для SL)
+function getRandomizedSlPips(basePips) {
+  const points = basePips * 10;
+  const maxSpread = 80;
+
+  const spread = randomInt(1, maxSpread);
+
+  return (points + spread) / 10;
+}
+
+// Плюс и минус рандом (для TP)
+function getRandomizedTpPips(basePips) {
+  const points = basePips * 10;
+  const maxSpread = 80;
+
+  const spread = randomInt(1, maxSpread);
+  const sign = randomFloat() < 0.5 ? -1 : 1;
+
+  const randomizedPoints = Math.max(1, points + (sign * spread));
+
+  return randomizedPoints / 10;
+}
 
   function calculateCopyTrade() {
     const rawEntry = copyEntryPriceInput.value;
@@ -384,8 +398,8 @@
     }
 
     const pipSize = getCopyPipSize(decimals, entry);
-    const slPips = getRandomizedPips(slBasePips);
-    const tpPips = getRandomizedPips(tpBasePips);
+    const slPips = getRandomizedSlPips(slBasePips);
+    const tpPips = getRandomizedTpPips(tpBasePips);
     const isBuy = direction === 'buy';
     const sl = isBuy ? entry - (slPips * pipSize) : entry + (slPips * pipSize);
     const tp = isBuy ? entry + (tpPips * pipSize) : entry - (tpPips * pipSize);
